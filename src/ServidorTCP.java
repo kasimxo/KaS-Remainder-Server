@@ -2,14 +2,26 @@
 //ServidorTCP.java
 import java.io.*;
 import java.net.*; 
+import java.util.*;
 
 public class ServidorTCP {
+	
+	public static HashSet<String> usuariosConectados;
+	//public static List<String> usuariosConectados;
 
 	public static void main(String[] args) {
 		
+		//Creamos una tarea que cada X tiempo lista a los usuarios conectados 
+		TimerTask listarUsuarios = new ConnectedUsers();
+		Timer timer = new Timer(true);
+		timer.scheduleAtFixedRate(listarUsuarios, 0, 15000);
+		
+		//Utilizamos hashset para evitar duplicados
+		usuariosConectados = new HashSet<String>();
+		//usuariosConectados = new ArrayList<String>();
+		
 		boolean ready = true;
 		
-		// TODO Auto-generated method stub
 		// Primero indicamos la dirección IP local 
 		try {
 			System.out.println("LocalHost = " + InetAddress.getLocalHost().toString()); 
@@ -29,8 +41,12 @@ public class ServidorTCP {
 			System.exit(-1);  
 		}
 		
-		int entrada;
+		//Esta es la peticion del cliente
+		String peticion;
 		long salida;
+		
+		
+		
 		// Bucle infinito 
 		while(ready)
 		{ 
@@ -42,28 +58,39 @@ public class ServidorTCP {
 				 // Extraemos los Streams de entrada y de salida
 				 DataInputStream dis = new DataInputStream(sckt.getInputStream());
 				 DataOutputStream dos = new DataOutputStream(sckt.getOutputStream());
+				 
+				
 				 // Podemos extraer información del socket
 				 // Nº de puerto remoto
 				 int puerto = sckt.getPort();
 				 // Dirección de Internet remota
 				 InetAddress direcc = sckt.getInetAddress();
+				 
 				 // Leemos datos de la peticion
-				 entrada = dis.readInt();
+				 //peticion = br.readLine();
+				 System.out.println("Voy a leer el input");
 				 
+				 //La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
+				 byte[] pck = new byte[10000];
+				 dis.read(pck);
+						 //dis.readAllBytes();
+				 System.out.println("Leyendo input");
+				 peticion = new String(pck);
+				 System.out.println(peticion);
 				 
-				 // Calculamos resultado
-				 salida = (long)entrada*(long)entrada;
+				 String respuesta = procesarPeticion(peticion);
+				 
 				 // Escribimos el resultado
-				 dos.writeLong(salida);
-				 
+				 dos.write(respuesta.getBytes());
 				 
 				 // Cerramos los streams
 				 dis.close();
+				 //br.close();
 				 dos.close();
 				 sckt.close();
 				 //ss.close();
 				 // Registramos en salida estandard
-				 System.out.println( "Cliente = " + direcc + ":" + puerto + "\tEntrada = " + entrada + "\tSalida = " + salida ); 
+				 System.out.println( "Cliente = " + direcc + ":" + puerto + "\tPeticion = " + peticion); 
 				 //ready = false;
 			 }  catch(Exception e) {
 				 System.err.println("Se ha producido la excepción : " +e);
@@ -76,6 +103,43 @@ public class ServidorTCP {
 			e.printStackTrace();
 		}
 
+	}
+	
+	/**
+	 * Procesamos la petición recibida.
+	 * Todas tinen la estructura "operación"="operando"
+	 * @param peticion
+	 * @return
+	 */
+	public static String procesarPeticion(String peticion) {
+		
+		String[] separada = peticion.split("=");
+		String operacion = separada[0];
+		String operando = separada[1];
+		
+		switch (operacion) {
+		case "Login":
+			boolean conectado = usuariosConectados.add(operando);
+			if (conectado) {
+				return "Login correcto, iniciando sesión como '"+operando+"'";
+			} else {
+				return "Login incorrecto, ese usuario ya está conectado";
+			}
+		case "Exit":
+			boolean cerrado = cerrarSesion(operando);
+			if (cerrado) {
+				return "Se ha cerrado la sesión.";
+			} else {
+				return "No se ha podido cerrar la sesión.";
+			}
+		default:
+			return "Operación no reconocida";
+		}
+		
+	}
+	
+	public static boolean cerrarSesion(String nombreUsuario) {
+		return usuariosConectados.remove(nombreUsuario);
 	}
 
 }
