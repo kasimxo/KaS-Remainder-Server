@@ -6,19 +6,29 @@ import java.util.*;
 
 public class ServidorTCP {
 	
-	public static HashSet<String> usuariosConectados;
-	//public static List<String> usuariosConectados;
+	// Guardamos una coleccion de tipo mapa con K, V
+	// Esto permite evitar usuarios duplicados
+	//
+	// K (String) nombre de usuario
+	// V (Date) el momento de la conexión o última conexión.
+	// Esto permite luego evaluar cuando ha sido la última conexión del usuario y cerrarla si queremos
+	public static Map<String, Date> usuariosConectados;
+	//La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
+	public static byte[] pck;
 
 	public static void main(String[] args) {
 		
 		//Creamos una tarea que cada X tiempo lista a los usuarios conectados 
 		TimerTask listarUsuarios = new ConnectedUsers();
 		Timer timer = new Timer(true);
-		timer.scheduleAtFixedRate(listarUsuarios, 0, 15000);
+		timer.scheduleAtFixedRate(listarUsuarios, 0, 5000);
 		
-		//Utilizamos hashset para evitar duplicados
-		usuariosConectados = new HashSet<String>();
-		//usuariosConectados = new ArrayList<String>();
+		
+		
+		usuariosConectados = new HashMap<String, Date>();
+		
+		
+		
 		
 		boolean ready = true;
 		
@@ -59,24 +69,23 @@ public class ServidorTCP {
 				 DataInputStream dis = new DataInputStream(sckt.getInputStream());
 				 DataOutputStream dos = new DataOutputStream(sckt.getOutputStream());
 				 
-				
+				 
 				 // Podemos extraer información del socket
 				 // Nº de puerto remoto
 				 int puerto = sckt.getPort();
 				 // Dirección de Internet remota
 				 InetAddress direcc = sckt.getInetAddress();
 				 
-				 // Leemos datos de la peticion
-				 //peticion = br.readLine();
-				 System.out.println("Voy a leer el input");
+				 byte[] pcc = new byte[10000];
+				 dis.read(pcc);
 				 
-				 //La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
-				 byte[] pck = new byte[10000];
-				 dis.read(pck);
-						 //dis.readAllBytes();
-				 System.out.println("Leyendo input");
-				 peticion = new String(pck);
-				 System.out.println(peticion);
+					
+				 peticion = clean(new String(pcc));
+				 //Esta agregando una mierda al final
+				 
+				 //String clean = peticion.substring(0, peticion.length()-2);
+				 
+				 System.out.println(peticion+" asfasd");
 				 
 				 String respuesta = procesarPeticion(peticion);
 				 
@@ -117,16 +126,23 @@ public class ServidorTCP {
 		String operacion = separada[0];
 		String operando = separada[1];
 		
+		User usuario;
+		
+		System.out.println("Se va a ejecutar la operación: "+operacion);
+		
 		switch (operacion) {
 		case "Login":
-			boolean conectado = usuariosConectados.add(operando);
-			if (conectado) {
-				return "Login correcto, iniciando sesión como '"+operando+"'";
-			} else {
+			usuario = new User(operando);
+			if (usuariosConectados.get(usuario.getNombreUsuario()) != null) {
 				return "Login incorrecto, ese usuario ya está conectado";
+			} else {
+				usuariosConectados.put(Integer.toString(usuario.hashCode()), new Date());
+				System.out.println("Se ha conectado el usuario: "+usuario);
+				return "Login correcto, iniciando sesión como '"+usuario+"'";
 			}
 		case "Exit":
-			boolean cerrado = cerrarSesion(operando);
+			usuario = new User(operando);
+			boolean cerrado = cerrarSesion(usuario);
 			if (cerrado) {
 				return "Se ha cerrado la sesión.";
 			} else {
@@ -138,8 +154,34 @@ public class ServidorTCP {
 		
 	}
 	
-	public static boolean cerrarSesion(String nombreUsuario) {
-		return usuariosConectados.remove(nombreUsuario);
+	public static String clean(String cadena) {
+		String clean = "";
+		String abc = "abcdefghijklmnñopqrstuvwxyz1234567890=;:";
+		for(int i = 0; i<cadena.length(); i++) {
+			System.out.println(i + " " + cadena.charAt(i));
+			String test = ""+cadena.charAt(i);
+			if(abc.contains(test.toLowerCase())) {
+				clean += cadena.charAt(i);
+			}
+		}
+		return clean;
+	}
+	
+	
+	public static boolean cerrarSesion(User usuario) {
+		System.out.println(Integer.toString(usuario.hashCode()));
+		
+		System.out.println(usuariosConectados.get(Integer.toString(usuario.hashCode())));
+		
+		if (usuariosConectados.containsKey(Integer.toString(usuario.hashCode()))) {
+			System.out.println("POLLAS");
+		}
+		
+			if (usuariosConectados.remove(Integer.toString(usuario.hashCode())) == null) {
+				//Devolvemos error porque no se ha podido cerrar la sesion
+				return false;
+			} 
+		return true;
 	}
 
 }

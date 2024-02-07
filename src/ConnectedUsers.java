@@ -6,9 +6,9 @@ public class ConnectedUsers extends TimerTask{
 	public void run() {
 		System.out.println("Listando usuarios conectados:");
 		
-		for(String usuario : ServidorTCP.usuariosConectados) {
-			System.out.println("\t-"+usuario);
-		}
+		ServidorTCP.usuariosConectados.forEach((usuario, conexion) -> 
+			System.out.printf("\tNombre=%s Última conexión=%s",usuario,conexion)
+		);
 	}
 
 }
