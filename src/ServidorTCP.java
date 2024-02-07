@@ -3,6 +3,7 @@
 import java.io.*;
 import java.net.*; 
 import java.util.*;
+import java.util.Map.Entry;
 
 public class ServidorTCP {
 	
@@ -15,6 +16,10 @@ public class ServidorTCP {
 	public static Map<String, Date> usuariosConectados;
 	//La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
 	public static byte[] pck;
+	
+	//Este mapa filtra por usuario y después por fecha para saber los antiguos, por ultimo recupera la cadena, el mensaje
+	public static Map<User, Map<Date, String>>recordatorios;
+	
 
 	public static void main(String[] args) {
 		
@@ -26,7 +31,7 @@ public class ServidorTCP {
 		
 		
 		usuariosConectados = new HashMap<String, Date>();
-		
+		recordatorios = new HashMap<User, Map<Date, String>>();
 		
 		
 		
@@ -126,34 +131,64 @@ public class ServidorTCP {
 		String operacion = separada[0];
 		String operando = separada[1];
 		
-		User usuario;
-		
 		System.out.println("Se va a ejecutar la operación: "+operacion);
 		
 		switch (operacion) {
 		case "Login":
-			usuario = new User(operando);
-			if (usuariosConectados.get(usuario.getNombreUsuario()) != null) {
-				return "Login incorrecto, ese usuario ya está conectado";
-			} else {
-				usuariosConectados.put(Integer.toString(usuario.hashCode()), new Date());
-				System.out.println("Se ha conectado el usuario: "+usuario);
-				return "Login correcto, iniciando sesión como '"+usuario+"'";
-			}
+			return login(operando);
 		case "Exit":
-			usuario = new User(operando);
-			boolean cerrado = cerrarSesion(usuario);
-			if (cerrado) {
-				return "Se ha cerrado la sesión.";
-			} else {
-				return "No se ha podido cerrar la sesión.";
-			}
+			return exit(operando);
+		case "Get":
+			return get(operando);
 		default:
 			return "Operación no reconocida";
 		}
 		
 	}
 	
+	public static String get(String nombre) {
+		User usuario = new User(nombre);
+		if (recordatorios.containsKey(usuario)) {
+			return "1";
+		} else {
+			return "0";
+		}
+		
+		
+	}
+	
+	public static String exit(String nombre) {
+
+		User usuario = new User(nombre);
+		boolean cerrado = cerrarSesion(usuario);
+		if (cerrado) {
+			return "Se ha cerrado la sesión.";
+		} else {
+			return "No se ha podido cerrar la sesión.";
+		}
+	}
+	
+	public static String login(String nombre) {
+		User usuario = new User(nombre);
+		if (usuariosConectados.get(usuario.getNombreUsuario()) != null) {
+			return "Login incorrecto, ese usuario ya está conectado";
+		} else {
+			usuariosConectados.put(Integer.toString(usuario.hashCode()), new Date());
+			System.out.println("Se ha conectado el usuario: "+usuario);
+			return "Login correcto, iniciando sesión como '"+usuario+"'";
+		}
+	}
+	
+	
+	/**
+	 * La existencia de este método es el resultado de dos horas de volverme loco.
+	 * Al convertir el byte[] a String, se añade el final de línea.
+	 * Esto por algún motivo tenía problemas con la conversión al .hashCode 
+	 * Provocaba que pese a usar la misma String como nombre de usuario, la comparación no diera resultado
+	 * Seguro que existe algún método mas elegante de hacer esto pero por el momento funciona
+	 * @param cadena
+	 * @return
+	 */
 	public static String clean(String cadena) {
 		String clean = "";
 		String abc = "abcdefghijklmnñopqrstuvwxyz1234567890=;:";
@@ -169,18 +204,10 @@ public class ServidorTCP {
 	
 	
 	public static boolean cerrarSesion(User usuario) {
-		System.out.println(Integer.toString(usuario.hashCode()));
-		
-		System.out.println(usuariosConectados.get(Integer.toString(usuario.hashCode())));
-		
-		if (usuariosConectados.containsKey(Integer.toString(usuario.hashCode()))) {
-			System.out.println("POLLAS");
-		}
-		
-			if (usuariosConectados.remove(Integer.toString(usuario.hashCode())) == null) {
-				//Devolvemos error porque no se ha podido cerrar la sesion
-				return false;
-			} 
+		if (usuariosConectados.remove(Integer.toString(usuario.hashCode())) == null) {
+			//Devolvemos error porque no se ha podido cerrar la sesion
+			return false;
+		} 
 		return true;
 	}
 

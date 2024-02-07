@@ -20,10 +20,10 @@ public class User {
 		return nombreUsuario.hashCode();
 	}
 
-	/*
+	
 	@Override
 	public String toString() {
 		return "Usuario="+ nombreUsuario;
 	}
-	*/
+	
 }
