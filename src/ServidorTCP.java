@@ -18,7 +18,11 @@ public class ServidorTCP {
 	public static byte[] pck;
 	
 	//Este mapa filtra por usuario y después por fecha para saber los antiguos, por ultimo recupera la cadena, el mensaje
-	public static Map<User, Map<Date, String>>recordatorios;
+	//Al tener esta estructura un usuario puede tener mas de un mensaje para la misma fecha
+	public static Map<String, Map<Calendar, List<String>>> recordatorios;
+	
+	public static String buffer;
+	public static int bufferN;
 	
 
 	public static void main(String[] args) {
@@ -31,9 +35,9 @@ public class ServidorTCP {
 		
 		
 		usuariosConectados = new HashMap<String, Date>();
-		recordatorios = new HashMap<User, Map<Date, String>>();
+		recordatorios = new HashMap<String, Map<Calendar, List<String>>>();
 		
-		
+		buffer = "";
 		
 		boolean ready = true;
 		
@@ -67,6 +71,11 @@ public class ServidorTCP {
 		{ 
 			try
 			 { 
+				// Reseteamos los buffers
+				buffer = "";
+				bufferN = 0;
+				
+				
 				// Esperamos a que alguien se conecte a nuestroSocket
 				//Como esto nos bindea con un cliente específico, lo metemos dentro del while para poder cerrarlo al servir al cliente y volver a liberar el servicio
 				 Socket sckt = ss.accept();
@@ -86,12 +95,7 @@ public class ServidorTCP {
 				 
 					
 				 peticion = clean(new String(pcc));
-				 //Esta agregando una mierda al final
-				 
-				 //String clean = peticion.substring(0, peticion.length()-2);
-				 
-				 System.out.println(peticion+" asfasd");
-				 
+
 				 String respuesta = procesarPeticion(peticion);
 				 
 				 // Escribimos el resultado
@@ -108,6 +112,7 @@ public class ServidorTCP {
 				 //ready = false;
 			 }  catch(Exception e) {
 				 System.err.println("Se ha producido la excepción : " +e);
+				 e.printStackTrace();
 			 }
 		 }
 		try {
@@ -138,24 +143,141 @@ public class ServidorTCP {
 			return login(operando);
 		case "Exit":
 			return exit(operando);
+		case "GetN":
+			return getN(operando);
 		case "Get":
 			return get(operando);
+		case "Set":
+			return set(operando);
 		default:
 			return "Operación no reconocida";
 		}
 		
 	}
 	
-	public static String get(String nombre) {
-		User usuario = new User(nombre);
-		if (recordatorios.containsKey(usuario)) {
-			return "1";
+	// Crea un nuevo recordatorio para el usuario
+	// El formato del recordatorio viene separado por ';'
+	// nombreUsuario;segundosDelay;mensaje
+	public static String set(String input) {
+		try {
+			String[] split = input.split(";");
+			String nombreUsuario = split[0];
+			String rawSegundos = split[1];
+			String mensaje = split[2];
+			Calendar time = Calendar.getInstance();
+			time.add(Calendar.SECOND, Integer.parseInt(rawSegundos));
+			Map<Calendar, List<String>> mapaUsuario = recordatorios.get(nombreUsuario);
+			
+			// Comprobamos que ya existiera algún recordatorio previo para el usuario (genérico)
+			if(mapaUsuario == null) {
+				mapaUsuario = new HashMap<Calendar, List<String>>();
+				List<String> mensajesUsuario = new ArrayList<String>();
+				mensajesUsuario.add(mensaje);
+				mapaUsuario.put(time, mensajesUsuario);
+				recordatorios.put(nombreUsuario, mapaUsuario);
+				return "Se ha agregado un nuevo recordatorio";
+			}
+			
+			List<String> recordatoriosUsuario = mapaUsuario.get(time);
+			
+			// Comprobamos que ya existiera algún recordatorio previo para el moment especificado
+			if(recordatoriosUsuario == null) {
+				recordatoriosUsuario = new ArrayList<String>();
+				recordatoriosUsuario.add(mensaje);
+				mapaUsuario.put(time, recordatoriosUsuario);
+				recordatorios.put(nombreUsuario, mapaUsuario);
+				return "Se ha agregado un nuevo recordatorio";
+			}
+			
+			recordatoriosUsuario.add(mensaje);
+			mapaUsuario.put(time, recordatoriosUsuario);
+			recordatorios.put(nombreUsuario, mapaUsuario);
+			
+			
+			
+			return "Se ha agregado un nuevo recordatorio.";
+		} catch (Exception e) {
+			System.err.println("Se ha producido un error procesando la petición: Set="+input);
+			e.printStackTrace();
+			return "Se ha producido un error procesando la petición.";
+		}
+		
+	}
+	
+	/**
+	 * Únicamente devuelve el número de recordatorios sin leer de ese usuario
+	 * Hace filtrado para contar únicamente aquellos recordatorios cuya hora ya ha pasado
+	 * @param nombre
+	 * @return
+	 */
+	public static String getN(String nombre) {
+		if (recordatorios.containsKey(nombre)) {
+			//return Integer.toString(recordatorios.get(nombre).size());
+			
+			bufferN = 0;
+			
+			Map<Calendar,List<String>> tot = recordatorios.get(nombre);
+			
+			if(tot == null) {
+				return Integer.toString(bufferN);
+			}
+			
+			tot.forEach( (K,V) -> {
+				
+				List<String> mensajes = null;
+				
+				if(K.before(Calendar.getInstance())) {
+					mensajes = tot.get(K);
+					if (mensajes != null) {
+						bufferN += mensajes.size();
+					}
+				}
+			}
+					);
+			
+			return Integer.toString(bufferN);
+			
 		} else {
 			return "0";
 		}
 		
+	}
+	
+	public static String get(String nombre) {
+		try {
+			Map<Calendar,List<String>> tot = recordatorios.get(nombre);
+			
+			if(tot == null) {
+				return "No hay ningún recordatorio";
+			}
+			
+			String recordatoriosSinLeer = "";
+			tot.forEach( (K,V) -> {
+				
+				List<String> mensajes = null;
+				
+				if(K.before(Calendar.getInstance())) {
+					mensajes = tot.get(K);
+					if (mensajes != null) {
+						for(String mensaje : mensajes) {
+							buffer += mensaje + ";";
+						}
+					}
+				}
+			}
+					);
+			
+			if(buffer.length()>1) {
+				buffer = buffer.substring(0, buffer.length()-1);
+			}
+			return buffer;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return "No se han podido recuperar los recordatorios";
+		}
 		
 	}
+	
 	
 	public static String exit(String nombre) {
 
@@ -191,9 +313,8 @@ public class ServidorTCP {
 	 */
 	public static String clean(String cadena) {
 		String clean = "";
-		String abc = "abcdefghijklmnñopqrstuvwxyz1234567890=;:";
+		String abc = "abcdefghijklmnñopqrstuvwxyz1234567890=;: ";
 		for(int i = 0; i<cadena.length(); i++) {
-			System.out.println(i + " " + cadena.charAt(i));
 			String test = ""+cadena.charAt(i);
 			if(abc.contains(test.toLowerCase())) {
 				clean += cadena.charAt(i);
