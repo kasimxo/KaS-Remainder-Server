@@ -10,8 +10,8 @@ public class ServidorTCP {
 	// Guardamos una coleccion de tipo mapa con K, V
 	// Esto permite evitar usuarios duplicados
 	//
-	// K (String) nombre de usuario
-	// V (Date) el momento de la conexión o última conexión.
+	// 		K (String) nombre de usuario
+	// 		V (Date) el momento de la conexión o última conexión.
 	// Esto permite luego evaluar cuando ha sido la última conexión del usuario y cerrarla si queremos
 	public static Map<String, Date> usuariosConectados;
 	//La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
@@ -75,7 +75,6 @@ public class ServidorTCP {
 				buffer = "";
 				bufferN = 0;
 				
-				
 				// Esperamos a que alguien se conecte a nuestroSocket
 				//Como esto nos bindea con un cliente específico, lo metemos dentro del while para poder cerrarlo al servir al cliente y volver a liberar el servicio
 				 Socket sckt = ss.accept();
@@ -93,10 +92,8 @@ public class ServidorTCP {
 				 byte[] pcc = new byte[10000];
 				 dis.read(pcc);
 				 
-					
-				 peticion = clean(new String(pcc));
-
-				 String respuesta = procesarPeticion(peticion);
+				 String pt = clean(pcc);
+				 String respuesta = procesarPeticion(pt);
 				 
 				 // Escribimos el resultado
 				 dos.write(respuesta.getBytes());
@@ -108,7 +105,7 @@ public class ServidorTCP {
 				 sckt.close();
 				 //ss.close();
 				 // Registramos en salida estandard
-				 System.out.println( "Cliente = " + direcc + ":" + puerto + "\tPeticion = " + peticion); 
+				 System.out.println( "Cliente = " + direcc + ":" + puerto + "\tPeticion = " + pt); 
 				 //ready = false;
 			 }  catch(Exception e) {
 				 System.err.println("Se ha producido la excepción : " +e);
@@ -250,12 +247,9 @@ public class ServidorTCP {
 			if(tot == null) {
 				return "No hay ningún recordatorio";
 			}
-			
 			String recordatoriosSinLeer = "";
-			tot.forEach( (K,V) -> {
-				
+			tot.forEach( (K,V) -> {	
 				List<String> mensajes = null;
-				
 				if(K.before(Calendar.getInstance())) {
 					mensajes = tot.get(K);
 					if (mensajes != null) {
@@ -265,8 +259,7 @@ public class ServidorTCP {
 					}
 				}
 			}
-					);
-			
+					);	
 			if(buffer.length()>1) {
 				buffer = buffer.substring(0, buffer.length()-1);
 			}
@@ -275,12 +268,10 @@ public class ServidorTCP {
 			e.printStackTrace();
 			return "No se han podido recuperar los recordatorios";
 		}
-		
 	}
 	
 	
 	public static String exit(String nombre) {
-
 		User usuario = new User(nombre);
 		boolean cerrado = cerrarSesion(usuario);
 		if (cerrado) {
@@ -308,6 +299,10 @@ public class ServidorTCP {
 	 * Esto por algún motivo tenía problemas con la conversión al .hashCode 
 	 * Provocaba que pese a usar la misma String como nombre de usuario, la comparación no diera resultado
 	 * Seguro que existe algún método mas elegante de hacer esto pero por el momento funciona
+	 * 
+	 * Update 09/02/2024:
+	 * Esto ya está absoleto, pero lo dejo para que se pueda observar mi locura
+	 *  
 	 * @param cadena
 	 * @return
 	 */
@@ -321,6 +316,22 @@ public class ServidorTCP {
 			}
 		}
 		return clean;
+	}
+	
+	
+	/**
+	 * Esta es la manera elegante de hacer lo de arriba
+	 * @param input
+	 * @return
+	 */
+	public static String clean(byte[] input) {
+		String sol = "";
+		for(byte by : input) {
+			if (by != 0) {
+				sol += (char) by;
+			}
+		}
+		return sol;
 	}
 	
 	
