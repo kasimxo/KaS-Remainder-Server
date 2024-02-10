@@ -243,7 +243,7 @@ public class ServidorTCP {
 	public static String get(String nombre) {
 		try {
 			Map<Calendar,List<String>> tot = recordatorios.get(nombre);
-			
+			List<Calendar> deleteBuffer = new ArrayList<Calendar>();
 			if(tot == null) {
 				return "No hay ningún recordatorio";
 			}
@@ -257,12 +257,19 @@ public class ServidorTCP {
 							buffer += mensaje + ";";
 						}
 					}
+					deleteBuffer.add(K);
 				}
 			}
 					);	
 			if(buffer.length()>1) {
 				buffer = buffer.substring(0, buffer.length()-1);
 			}
+			
+			//Borramos los mensajes que se han enviado al usuario
+			for (Calendar c : deleteBuffer) {
+				recordatorios.get(nombre).remove(c);
+			}
+			
 			return buffer;
 		} catch (Exception e) {
 			e.printStackTrace();
