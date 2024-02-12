@@ -289,14 +289,15 @@ public class ServidorTCP {
 	}
 	
 	public static String login(String nombre) {
-		User usuario = new User(nombre);
-		if (usuariosConectados.get(usuario.getNombreUsuario()) != null) {
-			return "Login incorrecto, ese usuario ya está conectado";
-		} else {
-			usuariosConectados.put(Integer.toString(usuario.hashCode()), new Date());
-			System.out.println("Se ha conectado el usuario: "+usuario);
-			return "Login correcto, iniciando sesión como '"+usuario+"'";
+		
+		if (usuariosConectados.get(nombre) == null) {
+			
+			usuariosConectados.put(nombre, new Date());
+			System.out.println("Se ha conectado el usuario: "+nombre);
+			return "EXITO";
 		}
+		
+		return "FALLO";
 	}
 	
 	
