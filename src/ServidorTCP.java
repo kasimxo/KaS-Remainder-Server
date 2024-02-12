@@ -12,7 +12,6 @@ public class ServidorTCP {
 	//
 	// 		K (String) nombre de usuario
 	// 		V (Date) el momento de la conexión o última conexión.
-	// Esto permite luego evaluar cuando ha sido la última conexión del usuario y cerrarla si queremos
 	public static Map<String, Date> usuariosConectados;
 	//La longitud del array de bytes tiene que ser suficiente para dar cabida a las peticiones
 	public static byte[] pck;
@@ -27,7 +26,7 @@ public class ServidorTCP {
 
 	public static void main(String[] args) {
 		
-		//Creamos una tarea que cada X tiempo lista a los usuarios conectados 
+		//Creamos una tarea que cada X tiempo lista a los usuarios conectados (sirve para debug) en un hilo secundario
 		TimerTask listarUsuarios = new ConnectedUsers();
 		Timer timer = new Timer(true);
 		timer.scheduleAtFixedRate(listarUsuarios, 0, 5000);
@@ -64,9 +63,6 @@ public class ServidorTCP {
 		String peticion;
 		long salida;
 		
-		
-		
-		// Bucle infinito 
 		while(ready)
 		{ 
 			try
@@ -75,16 +71,11 @@ public class ServidorTCP {
 				buffer = "";
 				bufferN = 0;
 				
-				// Esperamos a que alguien se conecte a nuestroSocket
-				//Como esto nos bindea con un cliente específico, lo metemos dentro del while para poder cerrarlo al servir al cliente y volver a liberar el servicio
-				 Socket sckt = ss.accept();
+				Socket sckt = ss.accept();
 				 // Extraemos los Streams de entrada y de salida
 				 DataInputStream dis = new DataInputStream(sckt.getInputStream());
 				 DataOutputStream dos = new DataOutputStream(sckt.getOutputStream());
 				 
-				 
-				 // Podemos extraer información del socket
-				 // Nº de puerto remoto
 				 int puerto = sckt.getPort();
 				 // Dirección de Internet remota
 				 InetAddress direcc = sckt.getInetAddress();
@@ -189,9 +180,7 @@ public class ServidorTCP {
 			recordatoriosUsuario.add(mensaje);
 			mapaUsuario.put(time, recordatoriosUsuario);
 			recordatorios.put(nombreUsuario, mapaUsuario);
-			
-			
-			
+
 			return "Se ha agregado un nuevo recordatorio.";
 		} catch (Exception e) {
 			System.err.println("Se ha producido un error procesando la petición: Set="+input);
@@ -221,16 +210,16 @@ public class ServidorTCP {
 			
 			tot.forEach( (K,V) -> {
 				
-				List<String> mensajes = null;
-				
-				if(K.before(Calendar.getInstance())) {
-					mensajes = tot.get(K);
-					if (mensajes != null) {
-						bufferN += mensajes.size();
+					List<String> mensajes = null;
+					
+					if(K.before(Calendar.getInstance())) {
+						mensajes = tot.get(K);
+						if (mensajes != null) {
+							bufferN += mensajes.size();
+						}
 					}
 				}
-			}
-					);
+			);
 			
 			return Integer.toString(bufferN);
 			
@@ -240,6 +229,12 @@ public class ServidorTCP {
 		
 	}
 	
+	/**
+	 * Recuperamos la lísta de recordatorios del usuario
+	 * También eliminamos los recordatorios que mandemos al usuario
+	 * @param nombre
+	 * @return
+	 */
 	public static String get(String nombre) {
 		try {
 			Map<Calendar,List<String>> tot = recordatorios.get(nombre);
@@ -278,9 +273,13 @@ public class ServidorTCP {
 	}
 	
 	
+	/**
+	 * Cerramos la sesión del usuario
+	 * @param nombre
+	 * @return
+	 */
 	public static String exit(String nombre) {
-		User usuario = new User(nombre);
-		boolean cerrado = cerrarSesion(usuario);
+		boolean cerrado = cerrarSesion(nombre);
 		if (cerrado) {
 			return "Se ha cerrado la sesión.";
 		} else {
@@ -289,14 +288,12 @@ public class ServidorTCP {
 	}
 	
 	public static String login(String nombre) {
-		
+		//Comprobamos que no haya ningún usuario conectado
 		if (usuariosConectados.get(nombre) == null) {
-			
 			usuariosConectados.put(nombre, new Date());
 			System.out.println("Se ha conectado el usuario: "+nombre);
 			return "EXITO";
 		}
-		
 		return "FALLO";
 	}
 	
@@ -343,8 +340,13 @@ public class ServidorTCP {
 	}
 	
 	
-	public static boolean cerrarSesion(User usuario) {
-		if (usuariosConectados.remove(Integer.toString(usuario.hashCode())) == null) {
+	/**
+	 * Cerramos la sesión del usuario
+	 * @param nombre
+	 * @return
+	 */
+	public static boolean cerrarSesion(String nombre) {
+		if (usuariosConectados.remove(nombre) == null) {
 			//Devolvemos error porque no se ha podido cerrar la sesion
 			return false;
 		} 
